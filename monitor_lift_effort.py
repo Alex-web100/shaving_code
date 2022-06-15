@@ -32,6 +32,12 @@ class LiftEffortNode(hm.HelloNode):
             t=rospy.get_time()
             self.time.append(t)
             (new,change)=(test_pid.update(t,curr_effort))
+            move_by=.001*change
+            if .05<move_by<=.3 or -.2<=move_by<=-.05:
+                pose={'joint_lift':self.joint_states.position[lift]+move_by}
+                self.move_to_pose(pose)
+                rospy.sleep(2)
+                test_pid.setpoint=self.joint_states.effort[lift]
             self.val.append(new)
             print(str((new,change)))
 
@@ -56,8 +62,9 @@ class LiftEffortNode(hm.HelloNode):
         ) 
 
     def main(self):
+        hm.HelloNode.main(self, 'effort_node', 'effort_node', wait_for_first_pointcloud = False)
         self.joint_states_subscriber = rospy.Subscriber('/stretch/joint_states', JointState, self.joint_states_callback)
-        monitor_effort = rospy.Service('monitor_effort',Trigger,self.trigger_lift_pid)
+        self.trigger_write_hello_service = rospy.Service('monitor_effort',Trigger,self.trigger_lift_pid)
 
         rate = rospy.Rate(2.0)
         while not rospy.is_shutdown():
@@ -66,7 +73,7 @@ class LiftEffortNode(hm.HelloNode):
 
 if __name__ == '__main__':
     try:
-        rospy.init_node("Effort_Node",anonymous=True)
+        rospy.init_node("effort_node")
         node = LiftEffortNode()
         node.main()
     except KeyboardInterrupt:
