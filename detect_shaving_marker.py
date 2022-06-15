@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
+import rosservice
 import tf
 import tf2_ros
 import threading
@@ -9,6 +10,7 @@ import stretch_funmap.navigate as nv
 
 from sensor_msgs.msg import JointState
 from std_srvs.srv import Trigger, TriggerRequest, TriggerResponse
+from pid import PID
 
 #Based on Kavya's stretch-bedding-manipulation code for detecting aruco markers, as well as the
 #stretch_demo code, specifically the 'hello_world' node
@@ -24,12 +26,6 @@ class MoveToTagNode(hm.HelloNode):
         with self.joint_states_lock:
             self.joint_states = joint_states
 
-    def lift_pid(self):
-        while not rospy.is_shutdown():
-            effort = self.joint_states.effort
-            lift = self.joint_states.name.index('joint_lift')
-            current_lift_effort=effort[lift]
-            rospy.loginfo('Lift Effort: '+str(current_lift_effort))
 
     def move_to_tag_location(self,trans,rot):
         rospy.loginfo('Moving to Tag Height')
@@ -109,14 +105,15 @@ class MoveToTagNode(hm.HelloNode):
             success=True,
             message='Completed Movement :) Remember to restart the detect_shaving_marker_node!'
         )
-
+    """ 
     def trigger_report_lift_effort(self, request):
         self.lift_pid()
 
         return TriggerResponse(
             success=True,
             message = 'Reported lift effort'
-        )
+        ) """
+
 
     def main(self):
         hm.HelloNode.main(self, 'detect_shaving_marker', 'detect_shaving_marker', wait_for_first_pointcloud = False)
@@ -127,13 +124,9 @@ class MoveToTagNode(hm.HelloNode):
                                                          Trigger,
                                                          self.trigger_move_to_height)
 
-        self.trigger_write_hello_service = rospy.Service('report_lift_effort',
+        """ self.trigger_write_hello_service = rospy.Service('report_lift_effort',
                                                          Trigger,
-                                                         self.trigger_report_lift_effort)
-
-        """ rospy.wait_for_service('/funmap/trigger_reach_until_contact')
-        rospy.loginfo('Node ' + self.node_name + ' connected to /funmap/trigger_reach_until_contact.')
-        self.trigger_reach_until_contact_service = rospy.ServiceProxy('/funmap/trigger_reach_until_contact', Trigger) """
+                                                         self.trigger_report_lift_effort) """
  
         rate = rospy.Rate(self.rate)
         while not rospy.is_shutdown():
