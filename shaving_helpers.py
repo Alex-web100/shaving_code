@@ -24,7 +24,7 @@ class ShavingHelperNode(hm.HelloNode):
 
     def move_arm_back(self):
         rospy.loginfo('Moving Arm Back')
-        pose = {'wrist_extension': 0, 'joint_wrist_pitch':0, 'joint_wrist_yaw':1.5, 'joint_head_pan':-1.6, 'joint_head_tilt':-.5,'joint_lift':.58}
+        pose = {'gripper_aperture':.005,'wrist_extension': 0, 'joint_wrist_pitch':0, 'joint_wrist_yaw':2.5, 'joint_head_pan':-1.6, 'joint_head_tilt':-.5,'joint_lift':.58}
         self.move_to_pose(pose)
         rospy.sleep(3)
 
@@ -33,10 +33,22 @@ class ShavingHelperNode(hm.HelloNode):
         pose = {'wrist_extension': .3, 'joint_wrist_pitch':-.3708, 'joint_wrist_yaw':.157, 'joint_lift':.8056, 'joint_gripper_finger_left':.1, 'joint_lift':.802}
         self.move_to_pose(pose)
         rospy.sleep(3)
+
+    def arm_test_pos(self):
+        rospy.loginfo('Moving to Arm Test Position')
+        pose = {'wrist_extension':.2, 'joint_lift':.63}
+        self.move_to_pose(pose)
+        rospy.sleep(3)
+
+    def arm_down_pos(self):
+        rospy.loginfo('Moving to Arm Test Position')
+        pose = {'joint_lift':.53}
+        self.move_to_pose(pose)
+        rospy.sleep(3)
     
     def grip(self):
         rospy.loginfo('Grip')
-        pose = {'joint_gripper_finger_left':.05}
+        pose = {'gripper_aperture':.005}
         self.move_to_pose(pose)
         rospy.sleep(1)
 
@@ -55,6 +67,22 @@ class ShavingHelperNode(hm.HelloNode):
         return TriggerResponse(
             success=True,
             message= 'To Shaving Position!'
+        )
+
+    def trigger_arm_pos(self, request):
+        self.arm_test_pos()
+
+        return TriggerResponse(
+            success=True,
+            message='Moved to arm pos!'
+        )
+
+    def trigger_arm_pos_2(self, request):
+        self.arm_down_pos()
+
+        return TriggerResponse(
+            success=True,
+            message='Moved to arm pos!'
         )
 
     def trigger_grip(self, request):
@@ -78,9 +106,18 @@ class ShavingHelperNode(hm.HelloNode):
                                                          Trigger,
                                                          self.trigger_shaving_position)
 
+        self.trigger_write_hello_service = rospy.Service('arm_pos',
+                                                         Trigger,
+                                                         self.trigger_arm_pos)
+
+        self.trigger_write_hello_service = rospy.Service('arm_pos_2',
+                                                         Trigger,
+                                                         self.trigger_arm_pos_2)
+
         self.trigger_write_hello_service = rospy.Service('grip',
                                                          Trigger,
                                                          self.trigger_grip)
+
 
         rate = rospy.Rate(self.rate)
         while not rospy.is_shutdown():

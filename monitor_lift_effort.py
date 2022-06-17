@@ -25,21 +25,36 @@ class LiftEffortNode(hm.HelloNode):
     def lift_pid(self):
         #initialize PD setpoint as first lift effort reported when the node is run
         lift = self.joint_states.name.index('joint_lift')
-        test_pid=PID(self.joint_states.effort[lift],5,.7,.2)
+        wrist = self.joint_states.name.index('wrist_extension')
+        lift_controller=PID(self.joint_states.effort[lift],5,.3,.2)
+        wrist_controller=PID(self.joint_states.effort[wrist],5,.3,.2)
+        curr_lift_effort=self.joint_states.effort[lift]
+        curr_wrist_effort=self.joint_states.effort[wrist]
         while not rospy.is_shutdown():
-            curr_effort=self.joint_states.effort[lift]
-            rospy.loginfo('Lift Effort: '+str(curr_effort))
             t=rospy.get_time()
             self.time.append(t)
-            (new,change)=(test_pid.update(t,curr_effort))
+            (new,change)=(lift_controller.update(t,curr_lift_effort))
+            (wrist_new,wrist_change)=(wrist_controller.update(t,curr_wrist_effort))
             move_by=.001*change
+            wrist_move_by=.001*wrist_change
+            rospy.loginfo("Move lift by:" + str(move_by))
+            rospy.loginfo("Move wrist by: "+str(wrist_move_by))
+            """ lift_controller.setpoint=self.joint_states.effort[lift]
+            wrist_controller.setpoint=self.joint_states.effort[wrist] """
             if .05<move_by<=.3 or -.2<=move_by<=-.05:
-                pose={'joint_lift':self.joint_states.position[lift]+move_by}
+                new_pos=self.joint_states.position[lift]+move_by
+                rospy.loginfo("moving lift from "+str(self.joint_states.position[lift])+" to "+str(new_pos))
+                pose={'joint_lift':new_pos}
                 self.move_to_pose(pose)
                 rospy.sleep(2)
-                test_pid.setpoint=self.joint_states.effort[lift]
+            if .05<abs(wrist_move_by)<=.1:
+                pose={'wrist_extension':self.joint_states.position[wrist]+wrist_move_by}
+                self.move_to_pose(pose)
+                rospy.sleep(2)
             self.val.append(new)
             print(str((new,change)))
+            curr_lift_effort=self.joint_states.effort[lift]
+            curr_wrist_effort=self.joint_states.effort[wrist]
 
     def plot(self,time,val):
         fig=plt.figure(figsize=[15,7])
