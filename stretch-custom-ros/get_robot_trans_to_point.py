@@ -21,8 +21,17 @@ class AlignWithTagNode(hm.HelloNode):
         with self.joint_states_lock:
             self.joint_states = joint_states
 
-    def move_head(self,request):
-        pose={'joint_head_pan':-1.5,'joint_head_tilt':-.45}
+    def ready(self,request):
+        pose={'joint_head_pan':-1.5,'joint_head_tilt':-.45,'joint_lift':.82,'joint_wrist_pitch':0,'joint_wrist_roll':0,'joint_wrist_yaw':0}
+        self.move_to_pose(pose)
+        rospy.sleep(1)
+        pose={'wrist_extension':.1}
+        self.move_to_pose(pose)
+        rospy.sleep(1)
+        pose={'gripper_aperture':.075}
+        self.move_to_pose(pose)
+        rospy.sleep(5)
+        pose={'gripper_aperture':-.1}
         self.move_to_pose(pose)
         rospy.sleep(1)
         return TriggerResponse(
@@ -40,7 +49,7 @@ class AlignWithTagNode(hm.HelloNode):
             (trans2,rot2)=listener.lookupTransform('overhead_shaver_aruco_test','sel_point',rospy.Time(0.0))
             rospy.loginfo("tag to selected point: " + str((trans2,rot2)))
 
-            self.finaltrans=np.subtract(trans2,trans)
+            self.finaltrans=np.subtract(trans,trans2)
             rospy.loginfo("robot to point:" + str(self.finaltrans))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.loginfo("tf exception")
@@ -50,7 +59,13 @@ class AlignWithTagNode(hm.HelloNode):
             j = self.joint_states.name.index('wrist_extension')
             current_pos_lift = self.joint_states.position[i]
             current_pos_wrist = self.joint_states.position[j]
-        pose={'joint_lift':z+current_pos_lift,'wrist_extension':x+current_pos_wrist,'joint_wrist_pitch':0, 'translate_mobile_base':y}
+        pose={'translate_mobile_base':x+.28}
+        self.move_to_pose(pose)
+        rospy.sleep(2.0)
+        pose={'wrist_extension':current_pos_wrist+.03-y}
+        self.move_to_pose(pose)
+        rospy.sleep(2.0)
+        pose={'joint_lift':current_pos_lift+.165-z}
         self.move_to_pose(pose)
         rospy.sleep(1.0)
         return TriggerResponse(
@@ -65,9 +80,9 @@ class AlignWithTagNode(hm.HelloNode):
         self.trigger_write_hello_service = rospy.Service('move_to_tag',
                                                          Trigger,
                                                          self.trigger_move_to_tag)
-        self.trigger_write_hello_service = rospy.Service('move_head',
+        self.trigger_write_hello_service = rospy.Service('ready',
                                                          Trigger,
-                                                         self.move_head)
+                                                         self.ready)
 
         rate = rospy.Rate(self.rate)
         while not rospy.is_shutdown():

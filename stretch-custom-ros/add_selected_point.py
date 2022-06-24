@@ -2,11 +2,14 @@
 
 import rospy
 import tf
-from datetime import date
-import pickle
 import tf2_msgs.msg
 import geometry_msgs.msg
 import open3d as o3d
+import networkx as nx
+import numpy as np
+from shaving_aruco.msg import PointsArray
+from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import MultiArrayDimension
 
 class PtAdder:
 
@@ -15,7 +18,7 @@ class PtAdder:
         while not rospy.is_shutdown():
             rospy.sleep(0.1)
             t = geometry_msgs.msg.TransformStamped()
-            t.header.frame_id="camera_color_optical_frame"
+            t.header.frame_id="cam_1_color_optical_frame"
             t.child_frame_id="sel_point"
             t.header.stamp=rospy.Time.now()
             t.transform.translation.x=data[0]
@@ -35,10 +38,9 @@ if __name__ == '__main__':
         try:
             rospy.init_node('add_selected_point')
             listener=tf.TransformListener()
-            today=str(date.today())
             
-            pcd = o3d.io.read_point_cloud("/home/sashawald/Documents/shaving_code-main/clouds/"+today+".ply")
-            pcd = pcd.voxel_down_sample(voxel_size=0.015)
+            pcd = o3d.io.read_point_cloud("/home/hello-robot/catkin_ws/src/shaving_aruco/clouds/2022-06-24.ply")
+            pcd = pcd.voxel_down_sample(voxel_size=0.035)
             vis = o3d.visualization.VisualizerWithEditing()
             vis.create_window()
             vis.add_geometry(pcd)
@@ -49,9 +51,46 @@ if __name__ == '__main__':
             (x,y,z)=pcd.points[pdata[0]]
             (x,y,z)=(-x,-y,-z)
 
+            G = nx.Graph()
+
+            pcd_tree = o3d.geometry.KDTreeFlann(pcd)
+            count=0
+            for vertex in pcd.points:
+                [k, idx, _] = pcd_tree.search_knn_vector_3d(vertex, 5)
+                for v_curr in idx:
+                    current_vertex=pcd.points[v_curr]
+                    if not (count==v_curr):
+                        dist = np.sqrt(np.sum((vertex-current_vertex)**2, axis=0))
+                        G.add_edge(count,v_curr,weight=dist)
+                count=count+1
+            search=(nx.bfs_tree(G,pdata[0]))
+            path=nx.shortest_path(search,source=pdata[0],target=pdata[1])
+            foundpcd = pcd.select_down_sample(path)
+            foundpcd.paint_uniform_color([1, 0, 0])
+            pcd.paint_uniform_color([0,1,0])
+
+            pub=rospy.Publisher('trajectory_points',Float64MultiArray,queue_size=10)
+            a=Float64MultiArray()
+            d=np.array(foundpcd.points)
+            d=np.ndarray.tolist((d.flatten()))
+            a.data=d
+            a.layout.data_offset = 0
+            dim = []
+            dim.append(MultiArrayDimension("points",len(d)/3,len(d)))
+            dim.append(MultiArrayDimension("coords",3,1))
+            a.layout.dim=dim
+            rospy.loginfo(a)
+            rospy.sleep(1)
+            pub.publish(a)
+
+            o3d.visualization.draw_geometries([pcd,foundpcd]) 
+            
+
             temp=PtAdder([x,y,z])
+            rospy.spin()
+            #rospy.sleep(2)
+
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.loginfo("tf error")
     except KeyboardInterrupt:
         rospy.loginfo("closing")
-
