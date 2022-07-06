@@ -7,7 +7,6 @@ import geometry_msgs.msg
 import open3d as o3d
 import networkx as nx
 import numpy as np
-from shaving_aruco.msg import PointsArray
 from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import MultiArrayDimension
 
@@ -39,8 +38,13 @@ if __name__ == '__main__':
             rospy.init_node('add_selected_point')
             listener=tf.TransformListener()
             
-            pcd = o3d.io.read_point_cloud("/home/hello-robot/catkin_ws/src/shaving_aruco/clouds/2022-06-24.ply")
-            pcd = pcd.voxel_down_sample(voxel_size=0.035)
+            pcd = o3d.io.read_point_cloud("/home/hello-robot/catkin_ws/src/shaving_aruco/clouds/2022-07-05.ply")
+            R = np.identity(3)  
+            extent = np.ones(3)/.32 # trying to create a bounding box below 1 unit
+            center = np.zeros(3) 
+            obb = o3d.geometry.OrientedBoundingBox(center,R,extent)
+            pcd = pcd.crop(obb)
+            pcd = pcd.voxel_down_sample(voxel_size=0.018)
             vis = o3d.visualization.VisualizerWithEditing()
             vis.create_window()
             vis.add_geometry(pcd)
@@ -60,7 +64,8 @@ if __name__ == '__main__':
                 for v_curr in idx:
                     current_vertex=pcd.points[v_curr]
                     if not (count==v_curr):
-                        dist = np.sqrt(np.sum((vertex-current_vertex)**2, axis=0))
+                        val = np.asarray([vertex[0]-current_vertex[0],vertex[1]-current_vertex[1],vertex[2]-current_vertex[2]])
+                        dist = np.sqrt(np.sum((val)**2, axis=0))
                         G.add_edge(count,v_curr,weight=dist)
                 count=count+1
             search=(nx.bfs_tree(G,pdata[0]))
